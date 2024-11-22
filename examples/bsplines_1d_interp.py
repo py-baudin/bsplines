@@ -19,7 +19,7 @@ plt.grid(axis='x')
 plt.xlabel('coordinates')
 plt.ylabel('data')
 plt.legend(loc='upper right')
-plt.title('1d interpolation with B-splines')
+plt.title('1d interpolation with B-Splines')
 
 plt.tight_layout()
 plt.show()

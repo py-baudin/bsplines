@@ -35,7 +35,7 @@ for i, ext in enumerate([None, 'natural', 'clamped', 'periodic']):
     plt.legend(loc='lower right')
     plt.grid(axis='x')
     plt.title(f'Boundary condition: {ext}')
-plt.suptitle(f'1st derivative')
+plt.suptitle(f'1st derivatives')
 
 fig, axes = plt.subplots(nrows=2, ncols=2, num='compare-scipy-1d-derivatives2', sharex=True, sharey=True)
 for i, ext in enumerate([None, 'natural', 'clamped', 'periodic']):
@@ -48,7 +48,7 @@ for i, ext in enumerate([None, 'natural', 'clamped', 'periodic']):
     plt.legend(loc='lower right')
     plt.grid(axis='x')
     plt.title(f'Boundary condition: {ext}')
-plt.suptitle(f'2nd derivative')
+plt.suptitle(f'2nd derivatives')
 
 plt.tight_layout()
 plt.show()

@@ -38,8 +38,7 @@ plt.ylim(-ylim, ylim)
 plt.quiver(coords, diff1, np.ones_like(diff2), diff2, diff2, angles='xy', units='xy', scale_units='xy', width=3e-2, cmap='plasma')
 plt.legend(loc='upper right')
 
-
-
+plt.suptitle('1d B-Splines: 1st and 2nd derivatives')
 plt.tight_layout()
 plt.show()
 
