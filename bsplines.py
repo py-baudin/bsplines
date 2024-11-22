@@ -48,25 +48,27 @@ MAP_EXTENSIONS = {
     # constant
     'constant': 'constant',
     'nearest': 'constant',
-    # periodic
-    'periodic': 'periodic',
+    # true-periodic
+    'true-periodic': 'true-periodic', 
+    # periodic (expects 1st and last points to match)
+    'periodic': 'periodic', # scipy.interpolate
     'grid-wrap': 'periodic', # scipy.ndimage alias
 }
 
 
-def interpolate(data, coords, *, degree=3, maxdim=None, order=0, **kwargs):
+def interpolate(data, coords, *, degree=3, maxdim=None, order=0, extension='natural', **kwargs):
     """ interpolation function """
     data = np.asarray(data)
+    kwargs['extension'] = extension
 
     if data.ndim == 1:
         bspline = BSpline.setup(data, degree=degree, **kwargs)
     else:
         bspline = BSplineND.setup(data, degree=degree, ndim=maxdim, **kwargs)
 
-    if order == 0:
-        return bspline(coords)
-    else:
-        return bspline.derivative(coords, order=order)
+    if order > 0:
+        bspline = bspline.derivative(order)
+    return bspline(coords)
 
 
 class BSpline:
@@ -78,24 +80,26 @@ class BSpline:
         return obj
 
 
-    def __init__(self, coeffs=None, *, degree=3, axis=0):
+    def __init__(self, coeffs=None, *, degree=3, offset=None):
         self.degree = degree
         self.coeffs = coeffs
-        self.axis = axis
+        self.offset = offset
 
-    def prefilter(self, data, *, degree=3, axis=0, **kwargs):
-        if axis != 0:
-            data = np.moveaxis(data, axis, 0)
+    def prefilter(self, data, *, degree=3, **kwargs):
         coeffs = prefilter_larger(data, degree, **kwargs)
         self.coeffs = coeffs
         self.degree = degree
-        self.axis = axis
 
     def __call__(self, coords):
+        if self.offset is not None:
+            coords = coords + self.offset
         return indirect_transform_1d(coords, self.degree, self.coeffs)
 
-    def derivative(self, coords, order=1):
-        return indirect_transform_1d(coords, self.degree, self.coeffs, order=order)
+    def derivative(self, order=1):
+        coeffs = np.diff(self.coeffs, n=order)
+        degree = self.degree - order
+        offset = -0.5 if bool(order % 2) else None
+        return BSpline(coeffs, degree=degree, offset=offset)
 
 
 class BSplineND:
@@ -179,10 +183,22 @@ def indirect_transform_1d(x, n, c, *, order=0, out=None):
     c = np.asarray(c)
     if out is None:
         out = np.zeros_like(x, dtype=c.dtype)
-    n_ = int(n / 2)
-    x0 = np.ceil(x - (n + 1) / 2).astype(int)
-    for k in range(n + 1):
-        out += c[x0 + k + n_] * evaluate_bspline(x - (x0 + k), n, order=order)
+
+    if order > 0:
+        #c1, c2 = (c[1:], c[:-1]) if n % 2 == 0 else (c, c)
+        # c1, c2 = (c, c)
+        # breakpoint()
+        c_ = c[1:] - c[:-1]
+        x = x + 0.5 * (-1)**n
+        return indirect_transform_1d(x, n - 1, c_, order=order - 1)
+        # out += indirect_transform_1d(x + 0.5, n - 1, c, order=order - 1)
+        # out -= indirect_transform_1d(x - 0.5, n - 1, c, order=order - 1)
+        # return out 
+    else:
+        n_ = int(n / 2)
+        x0 = np.maximum(np.ceil(x - (n + 1) / 2).astype(int), -n_)
+        for k in range(n + 1):
+            out += c[x0 + k + n_] * evaluate_bspline(x - (x0 + k), n)
     return out
 
 #
@@ -206,7 +222,7 @@ def indirect_transform_nd(coords, degree, coeffs, *, maxdim=None, order=0, axis=
 
     # b-spline functions
     coords = np.stack([coords[:ndim] - (x0 + k) for k in range(n + 1)], axis=-1)
-    funcs = evaluate_bspline(coords, n)
+    funcs = evaluate_bspline(coords, n, order=order)
 
     idx = np.indices([n + 1] * ndim).reshape(ndim, -1)
     # multiply b-spline functions over all axes
@@ -252,17 +268,12 @@ def _indirect_transform_nd(coords, degree, coeffs, *, maxdim=None, order=0, axis
 
 
 # vectorized
-def evaluate_bspline(x, n, order=0):
+def evaluate_bspline(x, n):
     """ evaluate bspline basis function (or its derivatives) """
     x = np.abs(x)
 
     if n == 0:
         return 1.0 * (x <= 0.5)
-
-    if order > 0:
-        out = evaluate_bspline(x + 0.5, n - 1, order=order - 1)
-        out -= evaluate_bspline(x - 0.5, n - 1, order=order - 1)
-        return out
 
     # shape = x.shape
     # x, indices = np.unique(x, return_inverse=True)
@@ -399,7 +410,7 @@ def prefilter_larger(f, n, axis=0, extension='constant', epsilon=1e-6):
 
     f = np.asarray(f)
     K = f.shape[axis]
-    n_ = int(n/2)
+    n_ = n // 2
 
     if axis != 0:
         f = np.moveaxis(f, axis, 0)
@@ -407,14 +418,16 @@ def prefilter_larger(f, n, axis=0, extension='constant', epsilon=1e-6):
     # get poles, normalization and trucation index
     z = get_poles(n)
     gamma = get_normalization_coefficient(n)
+
     N = compute_truncation_indices(n, epsilon=epsilon)
-    L0, *L = compute_extension_length(N)
+    L = compute_extension_length(N)
 
     # prefilter
-    c = apply_extension(f, L0, extension, axis=0)
+    c = apply_extension(f, L[0], extension, axis=0)
 
     for i in range(n_):
         c = exponential_filter(c, z[i], N[i])
+
 
     # renormalize
     c *= gamma
@@ -424,34 +437,28 @@ def prefilter_larger(f, n, axis=0, extension='constant', epsilon=1e-6):
     return c
 
 
-def exponential_filter(s, alpha, L, N=None, out=None):
+def exponential_filter(s, alpha, N, out=None):
     """
         s: signal
         alpha: filter coefficient
-        L: extension length (output indices correspond to slice [L:-L])
         N: truncation index (default: L)
+
     """
     s = np.asarray(s)
     K = s.shape[0]
-    N = N or L
-    if N > L:
-        raise ValueError(f'Cannot have N > L')
+    
     if out is None:
-        out = np.zeros((K - 2*L,) + s.shape[1:], dtype=s.dtype)
+        out = np.zeros((K - 2*N,) + s.shape[1:], dtype=s.dtype)
 
     # apply causal filter
-    stop = None if L == N else (L - N - 1)
-    # out[0] = np.dot(alpha**np.arange(N + 1), s[L:stop:-1])
-    out[0] = np.einsum('i,i...->...', alpha**np.arange(N + 1), s[L:stop:-1])
-    for i in range(1, K - 2 * L):
-        out[i] = s[i + L] + alpha * out[i - 1]
+    out[0] = np.einsum('i,i...->...', alpha**np.arange(N + 1), s[N:None:-1])
+    for i in range(1, K - 2*N):
+        out[i] = s[i + N] + alpha * out[i - 1]
 
     # apply anti-causal filter
-    stop = None if L == N else (N - L)
-    # l_end = np.dot(alpha**np.arange(N + 1), s[-L - 1:stop])
-    l_end = np.einsum('i,i...->...', alpha**np.arange(N + 1), s[-L - 1:stop])
-    out[-1] = alpha / (alpha**2 - 1) * (out[-1] + l_end - s[-L - 1])
-    for i in range(K - 2 * L - 2, -1, -1):
+    ls_end = np.einsum('i,i...->...', alpha**np.arange(N + 1), s[-N - 1:])
+    out[-1] = alpha / (alpha**2 - 1) * (out[-1] + ls_end - s[-N - 1])
+    for i in range(K - 2 * N - 2, -1, -1):
         out[i] = alpha * (out[i + 1] - out[i])
 
     return out
@@ -462,10 +469,17 @@ def apply_extension(f, L, extension, axis=0):
     """ extend f with one extension among:
         'whole-symmetric', 'half-symmetric', 'periodic', 'constant'
     """
+    f = np.asarray(f)
+    if f.shape[axis] < L + 1: 
+        # extend f recursively
+        while f.shape[axis] < L + 1:
+            L += 1 - f.shape[axis]
+            f = apply_extension(f, f.shape[axis] - 1, extension, axis=axis)
+
     if not extension in MAP_EXTENSIONS:
         raise ValueError(f'Invalid extension type: {extension}')
     ext = MAP_EXTENSIONS[extension]
-    f = np.asarray(f)
+    
     slices0 = [slice(None)] * f.ndim
     slices1 = list(slices0)
     if ext == 'constant':
@@ -480,9 +494,15 @@ def apply_extension(f, L, extension, axis=0):
         slices0[axis] = slice(L, 0, -1)
         slices1[axis] = slice(-2, -L - 2, -1)
         f = np.concatenate([f[tuple(slices0)], f, f[tuple(slices1)]], axis=axis)
-    elif ext == "periodic":
+    elif ext == "true-periodic":
         slices0[axis] = slice(-L, None)
         slices1[axis] = slice(L)
+        f = np.concatenate([f[tuple(slices0)], f, f[tuple(slices1)]], axis=axis)
+    elif ext == "periodic":
+        if not np.allclose(f.take(-1, axis=axis), f.take(0, axis=axis)):
+            raise ValueError('First and last points do not match while periodic extension expected')
+        slices0[axis] = slice(-L - 1, -1)
+        slices1[axis] = slice(1, L + 1)
         f = np.concatenate([f[tuple(slices0)], f, f[tuple(slices1)]], axis=axis)
     elif ext == "anti-symmetric":
         f0 = f[tuple(slice(None) if i != axis else slice(0, 1) for i in range(f.ndim))]

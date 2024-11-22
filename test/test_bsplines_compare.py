@@ -3,7 +3,6 @@ from scipy import ndimage, interpolate
 import bsplines
 
 # tmp
-from importlib import reload; reload(bsplines)
 from matplotlib import pyplot as plt
 
 def test_bsplines_1d():# 1d
@@ -33,12 +32,20 @@ def test_bsplines_1d():# 1d
     spl = interpolate.make_interp_spline(points, signal, k=3, bc_type='natural')
     _scipy = spl.derivative(1)(locations)
     _bsplines = bsplines.interpolate(signal, locations, degree=3, extension='natural', order=1)
+    # breakpoint()
+
+    plt.figure(); 
+    plt.plot(locations, _scipy, label='scipy')
+    plt.plot(locations, _bsplines, ':', label='bsplines')
+    # plt.scatter(points, signal)
+    plt.legend()
+    plt.show()
+
     assert np.allclose(_scipy, _bsplines, atol=1e-7)
 
     _scipy = spl.derivative(2)(locations)
     _bsplines = bsplines.interpolate(signal, locations, degree=3, extension='natural', order=2)
     
-    plt.figure(); plt.plot(locations, _scipy); plt.plot(locations, _bsplines); plt.show()
     assert np.allclose(_scipy, _bsplines, atol=1e-7)
 
 
