@@ -10,7 +10,7 @@ ncoord = 100
 coords = np.linspace(0, npoint - 1, ncoord)
 
 degree = 4
-spl = bsplines.BSpline1D.prefilter(data, degree=degree)
+spl = bsplines.BSpline.prefilter(data, degree=degree)
 interp = spl(coords)
 diff1 = spl.derivative(1)(coords)
 diff2 = spl.derivative(2)(coords)

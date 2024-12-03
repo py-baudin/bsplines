@@ -33,15 +33,3 @@ for i in range(4):
 plt.suptitle(f'`scipy.ndimage` vs `bsplines`')
 plt.tight_layout()
 plt.show()
-
-# # derivatives
-# x = np.array([1, 0])[:, np.newaxis, np.newaxis] * 1e-8
-# _scipy0 = ndimage.map_coordinates(signal, locations, order=3, mode='reflect')
-# _scipyx = (ndimage.map_coordinates(signal, locations + x, order=3, mode='reflect') - _scipy0) * 1e8
-# y = np.array([0, 1])[:, np.newaxis, np.newaxis] * 1e-8
-# _scipyy = (ndimage.map_coordinates(signal, locations + y, order=3, mode='reflect') - _scipy0) * 1e8
-# _bsplines = bsplines.interpolate(signal, locations, degree=3, extension='reflect', order=1)
-
-# plt.figure(); plt.imshow(_scipyx); plt.figure(); plt.imshow(_bsplines[0]); plt.show()
-# assert np.allclose(_scipyx, _bsplines[0], atol=1e-7)
-# assert np.allclose(_scipyy, _bsplines[1], atol=1e-7)

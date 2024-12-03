@@ -30,8 +30,8 @@ coords = [np.linspace(0, nx - 1, sx), np.linspace(0, ny - 1, sy)]
 locs = np.linspace(0, sx - 1, nx)[points[0]], np.linspace(0, sy - 1, ny)[points[1]]
 grid = np.meshgrid(*coords, indexing='ij')
 ext = 'anti-symmetric'
-spl = bsplines.BSplineND.prefilter(data, degree=degree, extension=ext)
-pred = spl.grid(coords).T
+spl = bsplines.BSpline.prefilter(data, degree=degree, extension=ext)
+pred = spl(*coords).T
 gt = f(*grid).T
 
 vmin, vmax = data.min(), data.max()
@@ -50,8 +50,8 @@ plt.title(f'2D interpolation (n={degree})')
 
 dxy = df(*points)
 dgt = df(*grid)
-dsplx = spl.derivative(1, axis=0).grid(coords)
-dsply = spl.derivative(1, axis=1).grid(coords)
+dsplx = spl.derivative(1, axis=0)(*coords)
+dsply = spl.derivative(1, axis=1)(*coords)
 
 
 plt.sca(axes[0, 1])

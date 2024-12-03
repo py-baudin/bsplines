@@ -30,7 +30,7 @@ for i, ext in enumerate([None, 'natural', 'clamped', 'periodic']):
     _scipy = interpolate.make_interp_spline(points, data, k=degree, bc_type=ext).derivative(1)(coords)
     plt.plot(coords, _scipy, label=f'scipy k={degree}')
     if ext is not None:
-        _bsplines = bsplines.interpolate(data, coords, degree=degree, extension=ext, order=1)
+        _bsplines = bsplines.BSpline.prefilter(data, degree=degree, extension=ext).derivative(1)(coords)
         plt.plot(coords, _bsplines, ':', label=f'bsplines k={degree}')
     plt.legend(loc='lower right')
     plt.grid(axis='x')
@@ -43,7 +43,7 @@ for i, ext in enumerate([None, 'natural', 'clamped', 'periodic']):
     _scipy = interpolate.make_interp_spline(points, data, k=degree, bc_type=ext).derivative(2)(coords)
     plt.plot(coords, _scipy, label=f'scipy k={degree}')
     if ext is not None:
-        _bsplines = bsplines.interpolate(data, coords, degree=degree, extension=ext, order=2)
+        _bsplines = bsplines.BSpline.prefilter(data, degree=degree, extension=ext).derivative(2)(coords)
         plt.plot(coords, _bsplines, ':', label=f'bsplines k={degree}')
     plt.legend(loc='lower right')
     plt.grid(axis='x')
