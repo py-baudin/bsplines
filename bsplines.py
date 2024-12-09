@@ -1,12 +1,37 @@
 """
+n-dimensional B-Splines interpolation
+
+- assumes regularly spaced knots (e.g. image pixels)
+- extensions: 
+    'constant': use constant value (default=0)
+    'nearest': use nearest value
+    'half-symmetric' ('mirror'): use center of boundary point as symmetry axis 
+    'whole-symmetric' ('reflect'): use extremity of boundary point as symmetry axis
+    'anti-symmetric' ('natural'): use center of boundary point as anti-symmetry axis
+    'true-periodic' ('grid-wrap'): use points from the opposite side
+    'periodic' ('wrap'): use points from the opposite side (first and last must match)
+```
+
+# Compute BSpline coefficients from n-dimensional data
+spl = BSpline.prefilter(data, ext='nearest')
+
+# interpolate at coords: (ndim x npoint)
+intp = spl(coords)
+# interpolate at grid points (cx, cy, ...) (faster)
+intp = spl(cx, cy)
+
+# compute nth-order derivative BSpline in selected axis
+spl_dn = spl.derivative(n, axis=0)
+# compute jacobian (stacked 1st derivatives)
+jac = spl.jacobian(coords)
+```
+
+Based on:
 > Briand T, Monasse P
   Theory and Practice of Image B-Spline Interpolation.
   Image Processing On Line 2018; 8:99–141.
-
-to check:
-- direct interpolation with [18]
-
 """
+
 import math
 import itertools
 import numpy as np
@@ -14,14 +39,6 @@ NAX = np.newaxis
 
 """
 TODO:
-- attributes: `axes`: active axes, `ndim`: number of active axes, `bounds`: value range bounds
-- implement `axes` in prefilter and transform
-- single `BSpline` object for 1D and nD
-- normalize value range in [0, 1] (or custom [rmin, rmax]) -> `bounds` attribute
-- implement transform with free coordinates (not grid) with different degrees in nD
-- refactor transform signature: `__call__(self, *coords)`: if len(coords) > 1, use gridded nD transform, else 1D/nD transform
-
-
 - implement transmitted boundary for prefilter
 - use gamma prime and n!beta
 - profile/optimize
@@ -31,6 +48,9 @@ TODO:
     - vectorized/cupy or parallel/numba
     - derivative w/r f: precompute Jacobian of pre-filter
     - optimize for degrees 0,1
+
+to check:
+- direct interpolation with [18]
 """
 
 
@@ -61,16 +81,20 @@ MAP_EXTENSIONS = {
 }
 
 
-def interpolate(data, *coords, degree=3, extension='nearest'):
+def interpolate(data, coords, degree=3, extension='nearest', **kwargs):
     """ interpolation function """
-    data = np.asarray(data)
+    bspline = BSpline.prefilter(data, degree=degree, extension=extension, **kwargs)
+    if isinstance(coords, (list, tuple)):
+        # grid mode
+        return bspline(*coords)
+    # else: nd mode
+    return bspline(coords)
+    
 
-    if data.ndim == 1:
-        bspline = BSpline.prefilter(data, degree=degree, extension=extension)
-    else:
-        bspline = BSpline.prefilter(data, degree=degree, extension=extension)
+def bspline(data, degree=3, extension='nearest', **kwargs):
+    """ retrun BSpline object """
+    return BSpline.prefilter(data, degree=degree, extension=extension, **kwargs)
 
-    return bspline(*coords)
 
 
 class BSpline:
@@ -114,9 +138,10 @@ class BSpline:
         else:
             axes = (axes,) if isinstance(axes, int) else tuple(map(int, axes))
         # epsilon = ... # todo
+        degree = tuple(degree * np.ones(len(axes), dtype=int))
         coeffs = data
-        for axis in axes:
-            coeffs = prefilter_larger(degree, coeffs, extension, axis=axis)
+        for i, axis in enumerate(axes):
+            coeffs = prefilter_larger(degree[i], coeffs, extension, axis=axis)
         return BSpline(degree, coeffs, axes=axes, bounds=bounds)
 
     def __init__(self, degree, coeffs, *, axes=None, offset=None, bounds=None):
@@ -163,16 +188,12 @@ class BSpline:
                     f = self._offset[i]
                 coords[i] = (coords[i] - b) * a + f
           
-            
-            
         if ndim == 1:
             return indirect_transform_1d(coords[0], self._degree[0], self.coeffs)
         elif grid_mode:
             return indirect_transform_nd_grid(coords, self._degree, self.coeffs)
         else:
-            if len(set(self._degree)) != 1:
-                raise NotImplementedError('Cannot use nd-transform with different degrees')
-            return indirect_transform_nd(coords, self._degree[0], self.coeffs)
+            return indirect_transform_nd(coords, self._degree, self.coeffs)
 
     def derivative(self, n=1, *, axis=0):
         """ Return the `n-th' order derivative as BSpline"""
@@ -180,7 +201,15 @@ class BSpline:
         d = np.asarray(self._degree)
         n = n * np.eye(d.size, dtype=int)[axis]
         offset = (n % 2) * (-1)**d * 0.5
-        return BSpline(tuple(d - n), coeffs, offset=tuple(offset))
+        return BSpline(tuple(d - n), coeffs, offset=tuple(offset), axes=self.axes, bounds=self._bounds)
+
+    def jacobian(self, *coords, axes=None):
+        """ return Jacobian matrix for selected axes """
+        jac = []
+        for axis in axes or self.axes:
+            der = self.derivative(n=1, axis=axis)(*coords)
+            jac.append(der)
+        return np.stack(jac, axis=-1)
 
 #
 # B-spline functions
@@ -212,33 +241,59 @@ def indirect_transform_nd_grid(x, n, c):
         out = np.moveaxis(out, 0, axis)
     return out
 
-
 def indirect_transform_nd(x, n, c, *, out=None):
-    n = int(n)
     c = np.asarray(c)
     x = np.asarray(x)
     ndim = x.shape[0]
-    
+    nxtr = c.ndim - ndim # non interpolated axes
+    n = n * np.ones(ndim, dtype=int)
+
     if out is None:
         out = np.zeros_like(x, dtype=c.dtype)
     n_ = n // 2
-    x0 = np.maximum(np.ceil(x - (n + 1) / 2).astype(int), -n_)
+    x0 = np.maximum(np.ceil(x.T - (n + 1) / 2).astype(int), -n_).T
 
-    # b-spline functions
-    x = np.stack([x - (x0 + k) for k in range(n + 1)], axis=-1)
-    bx = evaluate_bspline(x, n)
-
-    ks = np.indices([n + 1] * ndim).reshape(ndim, -1)
     # multiply b-spline functions over all axes
-    b = np.prod(bx[np.arange(ndim)[:, NAX], ..., ks], axis=0)
+    ks = np.indices(n + 1).reshape(ndim, -1)
+    b = np.ones(ks.shape[1:] + x.shape[1:])
+    for axis in range(ndim):
+        # b-spline functions
+        xi = np.stack([x[axis] - (x0[axis] + k) for k in range(n[axis] + 1)], axis=0)
+        b *= evaluate_bspline(xi, n[axis])[ks[axis]]
 
-    nax = (Ellipsis,) + (NAX,) * ndim
-    loc = tuple(x0[i] + ks[i][nax] + n_ for i in range(ndim))
     # sum over all coefficients
-    out = (c[loc] * b).sum(axis=0)
+    nax = (Ellipsis,) + (NAX,) * (x0.ndim - 1)
+    loc = tuple(x0[axis] + ks[axis][nax] + n_[axis] for axis in range(ndim))
+    out = (c[loc] * b[*[...] + [NAX] * nxtr]).sum(axis=0)
     return out
 
-#
+
+# def indirect_transform_nd(x, n, c, *, out=None):
+#     n = int(n)
+#     c = np.asarray(c)
+#     x = np.asarray(x)
+#     ndim = x.shape[0]
+    
+#     if out is None:
+#         out = np.zeros_like(x, dtype=c.dtype)
+#     n_ = n // 2
+#     x0 = np.maximum(np.ceil(x - (n + 1) / 2).astype(int), -n_)
+
+#     # b-spline functions
+#     x = np.stack([x - (x0 + k) for k in range(n + 1)], axis=-1)
+#     bx = evaluate_bspline(x, n)
+
+#     ks = np.indices([n + 1] * ndim).reshape(ndim, -1)
+#     # multiply b-spline functions over all axes
+#     b = np.prod(bx[np.arange(ndim)[:, NAX], ..., ks], axis=0)
+
+#     nax = (Ellipsis,) + (NAX,) * (x0.ndim - 1)
+#     loc = tuple(x0[i] + ks[i][nax] + n_ for i in range(ndim))
+#     # sum over all coefficients
+#     out = (c[loc] * b).sum(axis=0)
+#     return out
+
+
 # base version
 # def _indirect_transform_nd(coords, degree, coeffs, *, maxdim=None, order=0, axis=0, out=None):
 #     coords = np.asarray(coords)
@@ -320,7 +375,7 @@ def evaluate_bspline(x, n):
     out[support] = _out / fn
     return out
 
-#
+
 # #
 # # numba version
 # import numba as nb

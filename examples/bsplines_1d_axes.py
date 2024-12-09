@@ -3,10 +3,9 @@ from matplotlib import pyplot as plt
 import bsplines
 
 degree = 3
-nx, ny = (10, 10)
-sx, sy = (100, 101)
+nx = 10
 nd = 10
-rgen = np.random #np.random.RandomState(0)
+rgen = np.random
 
 
 # model
