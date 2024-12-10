@@ -7,13 +7,13 @@ It might be more flexible in some situations, and less in others.
 
 - (for now) assumes regularly spaced knots (e.g. image pixels)
 - extensions:
-    - 'constant': use constant value (default=0)
-    - 'nearest': use nearest value
-    - 'half-symmetric' ('mirror'): use center of boundary point as symmetry axis 
-    - 'whole-symmetric' ('reflect'): use extremity of boundary point as symmetry axis
-    - 'anti-symmetric' ('natural'): use center of boundary point as anti-symmetry axis
-    - 'true-periodic' ('grid-wrap'): use points from the opposite side
-    - 'periodic' ('wrap'): use points from the opposite side (first and last must match)
+    - `'constant'`: use constant value (default=0)
+    - `'nearest'`: use nearest value
+    - `'half-symmetric'` (`'mirror'`): use center of boundary point as symmetry axis 
+    - `'whole-symmetric'` (`'reflect'`): use extremity of boundary point as symmetry axis
+    - `'anti-symmetric'` (`'natural'`): use center of boundary point as anti-symmetry axis
+    - `'true-periodic'` (`'grid-wrap'`): use points from the opposite side
+    - `'periodic'` (`'wrap'`): use points from the opposite side (first and last must match)
   
 ```python
 # basic usage: interpolate data at given coordinates
