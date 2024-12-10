@@ -12,17 +12,24 @@ n-dimensional B-Splines interpolation
     'periodic' ('wrap'): use points from the opposite side (first and last must match)
 ```
 
-# Compute BSpline coefficients from n-dimensional data
-spl = BSpline.prefilter(data, ext='nearest')
+# basic usage: interpolate data at given coordinates
+res = bsplines.interpolate(data, coords, degree=3, extension='nearest')
+
+Note that `coords[i]` is assumed to belong to [0, data.shape[i] - 1].
+
+# or simply compute BSpline coefficients
+spl = bsplines.bspline(data, degree=3, extension='nearest')
+# or equivalently
+spl = BSpline.prefilter(data, degree=3, ext='nearest')
 
 # interpolate at coords: (ndim x npoint)
 intp = spl(coords)
-# interpolate at grid points (cx, cy, ...) (faster)
+# interpolate at grid points (cx, cy, ...) (much faster)
 intp = spl(cx, cy)
 
 # compute nth-order derivative BSpline in selected axis
 spl_dn = spl.derivative(n, axis=0)
-# compute jacobian (stacked 1st derivatives)
+# compute jacobian matrix (stacked 1st derivatives)
 jac = spl.jacobian(coords)
 ```
 
