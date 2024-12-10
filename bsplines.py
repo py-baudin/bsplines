@@ -54,14 +54,8 @@ TODO:
 - use gamma prime and n!beta
 - profile/optimize
     - tabulate coefficients for degrees 2,3
-    - split transform: 1) evaluate BSplines(coords) and 2) transform(coeffs, BSplines)
-    - inplace functions (prefilter/evaluate)
-    - vectorized/cupy or parallel/numba
-    - derivative w/r f: precompute Jacobian of pre-filter
-    - optimize for degrees 0,1
-
-to check:
-- direct interpolation with [18]
+    - vectorized/cupy
+- check direct interpolation with [18]
 """
 
 
