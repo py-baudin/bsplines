@@ -1,6 +1,6 @@
 # n-dimensional B-Splines interpolation
 
-A pure python/numpy implementation of n-dimensional B-Splines.
+A pure `python`/`numpy` implementation of n-dimensional B-Splines.
 
 This is currently *not* faster than `scipy.interpolate.make_interp_spline` or `scipy.ndimage.map_coordinates`.
 It might be more flexible in some situations, and less in others.
@@ -16,28 +16,39 @@ It might be more flexible in some situations, and less in others.
     - `'periodic'` (`'wrap'`): use points from the opposite side (first and last must match)
   
 ```python
+# arguments: 
+# `data`: (n1, n2, ...) ndim-ndarray
+# `coords`: (ndim, npoint) 2d-ndarray, or ndim-list/tuple (nx, ny, ...) of 1d-ndarray
+# `degree`: int or ndim-tuple of ints (for different degrees in different dimensions)
+# `extension`: str (see above)
+
+# Note that `coords[i]` is assumed to belong to [0, data.shape[i] - 1].
+# if `coords` is a 2d ndarray, nd-mode is assummed (see below)
+# if `coords` is a list/tuple, grid mode is assumed (see below)
+
 # basic usage: interpolate data at given coordinates
 res = bsplines.interpolate(data, coords, degree=3, extension='nearest')
 
-Note that `coords[i]` is assumed to belong to [0, data.shape[i] - 1].
-
-# or simply compute BSpline coefficients
+# or simply compute b-spline coefficients, returning a `BSpline` object
 spl = bsplines.bspline(data, degree=3, extension='nearest')
 # or equivalently
 spl = BSpline.prefilter(data, degree=3, ext='nearest')
 
-# interpolate at coords: (ndim x npoint)
+# nd-mode: interpolate at coords: (ndim x npoint)
 intp = spl(coords)
-# interpolate at grid points (cx, cy, ...) (much faster)
+# grid-mode: interpolate at grid points (cx, cy, ...) (much faster, if applicable)
 intp = spl(cx, cy)
 
 # compute nth-order derivative BSpline in selected axis
 spl_dn = spl.derivative(n, axis=0)
-# compute jacobian matrix (stacked 1st derivatives)
+# compute jacobian matrix (1st derivatives at `coords` stacked on last axis)
 jac = spl.jacobian(coords)
 ```
 
-Based on:
-> Briand T, Monasse P
-  Theory and Practice of Image B-Spline Interpolation.
+Based on
+> Briand T, Monasse P, 
+  "Theory and Practice of Image B-Spline Interpolation".
   Image Processing On Line 2018; 8:99–141.
+
+and other ressources for the derivatives, grid-mode, etc.
+
