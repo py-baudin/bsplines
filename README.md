@@ -33,6 +33,7 @@ It might be more flexible in some situations, and less in others.
 # if `coords` is a list/tuple, grid mode is assumed (see below)
 
 # basic usage: interpolate data at given coordinates
+import bsplines
 res = bsplines.interpolate(data, coords, degree=3, extension='nearest')
 
 # or simply compute b-spline coefficients, returning a `BSpline` object
