@@ -26,8 +26,9 @@ It might be more flexible in some situations, and less in others.
 # `coords`: (ndim, npoint) 2d-ndarray, or ndim-list/tuple (nx, ny, ...) of 1d-ndarray
 # `degree`: int or ndim-tuple of ints (for different degrees in different dimensions)
 # `extension`: str (see above)
+# `bounds`: None or ndim-sequence of 2-tuples, boundaries for the coordinates
+#     if None, `coords[i]` is assumed to belong to [0, data.shape[i] - 1].
 
-# Note that `coords[i]` is assumed to belong to [0, data.shape[i] - 1].
 # if `coords` is a 2d ndarray, nd-mode is assummed (see below)
 # if `coords` is a list/tuple, grid mode is assumed (see below)
 
