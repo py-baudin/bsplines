@@ -159,7 +159,7 @@ class BSpline:
         self._degree = tuple(int(v) for v in degree * np.ones(ndim, dtype=int))
         self._offset = None if offset is None else np.asarray(offset)
         if bounds and len(bounds) == 2 and all(isinstance(b, int) for b in bounds):
-            bounds = [tuple(bounds)]
+            bounds = [tuple(bounds)] * ndim
         self._bounds = None if bounds is None else list(map(tuple, bounds))
 
     def __call__(self, *coords):
