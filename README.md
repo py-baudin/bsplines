@@ -54,11 +54,11 @@ jac = spl.jacobian(coords)
 
 1D interpolation and derivatives (`examples/bsplines_1d_derivatives.py`):
 
-[diff-1d](docs/diff-1d.png)
+![diff-1d](docs/diff-1d.png)
 
 2D interpolation (`examples/bsplines_nd_interp.py.py`)
 
-[2d-splines](docs/bsplines-2d.png)
+![2d-splines](docs/bsplines-2d.png)
 
 
 ## Bibliography
