@@ -29,14 +29,13 @@ It might be more flexible in some situations, and less in others.
 # `bounds`: None or ndim-sequence of 2-tuples, boundaries for the coordinates
 #     if None, `coords[i]` is assumed to belong to [0, data.shape[i] - 1].
 
+# basic usage: interpolate data at given coordinates
+import bsplines
+intp = bsplines.interpolate(data, coords, degree=3, extension='nearest')
 # if `coords` is a 2d ndarray, nd-mode is assummed (see below)
 # if `coords` is a list/tuple, grid mode is assumed (see below)
 
-# basic usage: interpolate data at given coordinates
-import bsplines
-res = bsplines.interpolate(data, coords, degree=3, extension='nearest')
-
-# or simply compute b-spline coefficients, returning a `BSpline` object
+# only compute b-spline coefficients, returning a `BSpline` object
 spl = bsplines.bspline(data, degree=3, extension='nearest')
 # or equivalently
 spl = BSpline.prefilter(data, degree=3, ext='nearest')
