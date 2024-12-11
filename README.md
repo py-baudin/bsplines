@@ -38,7 +38,7 @@ intp = bsplines.interpolate(data, coords, degree=3, extension='nearest')
 # only compute b-spline coefficients, returning a `BSpline` object
 spl = bsplines.bspline(data, degree=3, extension='nearest')
 # or equivalently
-spl = BSpline.prefilter(data, degree=3, ext='nearest')
+spl = bsplines.BSpline.prefilter(data, degree=3, ext='nearest')
 
 # nd-mode: interpolate at coords: (ndim x npoint)
 intp = spl(coords)
