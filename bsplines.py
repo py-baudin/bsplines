@@ -96,9 +96,18 @@ def interpolate(data, coords, degree=3, extension="nearest", **kwargs):
     return bspline(coords)
 
 
-def bspline(data, degree=3, extension="nearest", **kwargs):
-    """retrun BSpline object"""
-    return BSpline.prefilter(data, degree=degree, extension=extension, **kwargs)
+def bspline(data, degree=3, extension="nearest", s=0, **kwargs):
+    """return BSpline object"""
+    if s == 0:
+        return BSpline.prefilter(data, degree=degree, extension=extension, **kwargs)
+    
+    # compute smoothing spline
+    coeffs = 0
+    for i in range(s):
+        select = np.roll(data, i, axis=0)[::s]
+        spl = BSpline.prefilter(select, degree=degree, extension=extension, **kwargs)
+        coeffs += spl.coeffs
+    return BSpline(degree, coeffs/s, **kwargs)
 
 
 class BSpline:
@@ -139,7 +148,7 @@ class BSpline:
     @classmethod
     def prefilter(cls, data, *, degree=3, bounds=None, axes=None, extension="nearest"):
         """compute B-Spline coefficients and return BSpline object"""
-        data = np.asarray(data)
+        data = asfloat(data)
         if axes is None:
             axes = tuple(range(data.ndim))
         else:
@@ -153,7 +162,7 @@ class BSpline:
 
     def __init__(self, degree, coeffs, *, axes=None, offset=None, bounds=None):
         """Initialize BSpline object from coefficients"""
-        self.coeffs = np.asarray(coeffs)
+        self.coeffs = asfloat(coeffs)
         ndim = self.coeffs.ndim if axes is None else len(axes)
         self._axes = tuple(range(ndim)) if axes is None else tuple(axes)
         self._degree = tuple(int(v) for v in degree * np.ones(ndim, dtype=int))
@@ -171,14 +180,14 @@ class BSpline:
             # grid mode
             if ndim != len(coords):
                 raise ValueError(f"Expected {ndim} coordinates, got: {len(coords)}")
-            coords = [np.array(arr) for arr in coords]
+            coords = [asfloat(arr) for arr in coords]
             if any(arr.ndim > 1 for arr in coords):
                 raise ValueError(
                     f"Expected 1d arrays in grid mode, got: {[arr.shape for arr in coords]}"
                 )
         else:
             # 1d or nd mode
-            coords = np.atleast_2d(np.copy(coords[0]))
+            coords = np.atleast_2d(asfloat(coords[0], copy=True))
             if coords.shape[0] != ndim:
                 raise ValueError(
                     f"First coordinates dimentions must be: {ndim}, got: {coords.shape[0]}"
@@ -735,3 +744,13 @@ def compute_polynomial_coefficients(n):
         b[k] = 1 / n * (((n + 1) / 2 + k) * d[k] + ((n + 1) / 2 - k) * d[max(k - 1, 0)])
 
     return b
+
+
+# misc
+
+def asfloat(arr, **kwargs):
+    """ force cast to float if integer """
+    arr = np.asanyarray(arr, **kwargs)
+    if np.issubdtype(arr.dtype, np.integer):
+        return arr.astype(float)
+    return arr
