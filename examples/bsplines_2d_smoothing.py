@@ -17,32 +17,23 @@ gt = spl(coords)
 noisy = gt + np.random.normal(0, 1e-2, (ncoord, 2))
 noisy[-1] = noisy[0]
 
-# 10-average spline
-s = 10
+
+# smoothing spline
+navg = 10
 degree = 6
-spl = bsplines.bspline(noisy, degree=10, axes=[0], s=s, extension='periodic')
-smooth = spl(np.linspace(0, spl.shape[0] - 2, 1000))
-nodes = spl(np.arange(spl.shape[0] - 1))
-# s = 10
-# degree = 6
-# coeffs = 0
-# for i in range(s):
-#     select = np.roll(noisy, i, axis=0)[::s]
-#     # select = np.r_[select, select[0:1]]
-#     spl = bsplines.bspline(select, axes=[0], degree=degree, extension='periodic')
-#     coeffs += spl.coeffs
-# spl = bsplines.BSpline(degree, coeffs/s, axes=[0])
-# locs = np.linspace(0, len(select) - 1, 1000)
-# smooth2 = spl(locs)
+spl = bsplines.bspline(noisy, degree=degree, navg=navg, extension='periodic')
+locs = np.linspace(*spl.bounds[0], num=1000)
+smooth = spl(locs)
+nodes = spl(np.arange(*spl.bounds[0]))
 
 # plot
 plt.close('all')
 plt.figure(0)
-plt.plot(gt[:, 0], gt[:, 1], label='ground truth')
+plt.plot(gt[:, 0], gt[:, 1], label='ground truth', alpha=0.5)
 plt.plot(noisy[:, 0], noisy[:, 1], label='noisy')
 plt.plot(smooth[:, 0], smooth[:, 1], label='BSpline approximation')
-plt.plot(nodes[:, 0], nodes[:, 1], '+', color='k')
-plt.title(f'BSpline approximation (s={s}, k={degree})')
+plt.plot(nodes[:, 0], nodes[:, 1], '+', color='k', label='BSpline nodes')
+plt.title(f'BSpline approximation (num. avg={navg}, k={degree})')
 plt.legend(loc='lower right')
 plt.show()
 

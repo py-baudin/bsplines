@@ -41,6 +41,7 @@ Based on:
 
 import math
 import numpy as np
+from numpy.lib.stride_tricks import as_strided
 
 try:
     import numba as nb
@@ -86,7 +87,7 @@ MAP_EXTENSIONS = {
 }
 
 
-def interpolate(data, coords, degree=3, extension="nearest", **kwargs):
+def interpolate(data, coords, *, degree=3, extension="nearest", **kwargs):
     """interpolation function"""
     bspline = BSpline.prefilter(data, degree=degree, extension=extension, **kwargs)
     if isinstance(coords, (list, tuple)):
@@ -96,18 +97,29 @@ def interpolate(data, coords, degree=3, extension="nearest", **kwargs):
     return bspline(coords)
 
 
-def bspline(data, degree=3, extension="nearest", s=0, **kwargs):
+def bspline(data, *, degree=3, extension="nearest", navg=0, **kwargs):
     """return BSpline object"""
-    if s == 0:
-        return BSpline.prefilter(data, degree=degree, extension=extension, **kwargs)
-    
-    # compute smoothing spline
-    coeffs = 0
-    for i in range(s):
-        select = np.roll(data, i, axis=0)[::s]
-        spl = BSpline.prefilter(select, degree=degree, extension=extension, **kwargs)
-        coeffs += spl.coeffs
-    return BSpline(degree, coeffs/s, **kwargs)
+    if navg != 0:
+        return smoothing_bspline(data, degree=degree, extension=extension, navg=navg, **kwargs)
+    return BSpline.prefilter(data, degree=degree, extension=extension, **kwargs)
+
+
+def smoothing_bspline(data, *, degree=3, navg=0, axes=0, **kwargs):
+    """ return smoothing BSpline 
+
+    Arguments:
+        navg: number of points to average
+    """
+    axes = (axes,) if isinstance(axes, int) else tuple(map(int, axes))
+    if axes != (0,):
+        raise ValueError(f'Requiring argument `axes=[0]`.')
+    data = asfloat(data)
+    if kwargs.get('extension') == 'periodic':
+        data = np.concat([data, data[:navg]])
+    shape = (data.shape[0] // navg,) + data.shape[1:] + (navg,)
+    strides = (data.strides[0] * navg,) + data.strides[1:] + (data.strides[0],)
+    spl_all = BSpline.prefilter(as_strided(data, shape, strides), degree=degree, axes=axes, **kwargs)
+    return BSpline(degree, np.mean(spl_all.coeffs, axis=-1), axes=spl_all.axes)
 
 
 class BSpline:
@@ -143,7 +155,7 @@ class BSpline:
         """expected bounds of the coordinate arrays"""
         if self._bounds is not None:
             return self._bounds
-        return [(0, s - 1) for s in self.shape]
+        return [(0, s - 1 - (1 - self.degree % 2)) for s in self.shape]
 
     @classmethod
     def prefilter(cls, data, *, degree=3, bounds=None, axes=None, extension="nearest"):
@@ -163,6 +175,7 @@ class BSpline:
     def __init__(self, degree, coeffs, *, axes=None, offset=None, bounds=None):
         """Initialize BSpline object from coefficients"""
         self.coeffs = asfloat(coeffs)
+        axes = (axes,) if isinstance(axes, int) else tuple(map(int, axes))
         ndim = self.coeffs.ndim if axes is None else len(axes)
         self._axes = tuple(range(ndim)) if axes is None else tuple(axes)
         self._degree = tuple(int(v) for v in degree * np.ones(ndim, dtype=int))
