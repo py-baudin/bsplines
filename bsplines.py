@@ -145,17 +145,14 @@ class BSpline:
     @property
     def shape(self):
         """shape of the interpolation knot array"""
-        return tuple(
-            self.coeffs.shape[axis] + min(0, 1 - deg)
-            for deg, axis in zip(self._degree, self.axes)
-        )
+        return self._shape
 
     @property
     def bounds(self):
         """expected bounds of the coordinate arrays"""
         if self._bounds is not None:
             return self._bounds
-        return [(0, s - 1 - (1 - self.degree % 2)) for s in self.shape]
+        return [(0, s - 1) for s in self.shape]
 
     @classmethod
     def prefilter(cls, data, *, degree=3, bounds=None, axes=None, extension="nearest"):
@@ -180,6 +177,10 @@ class BSpline:
         self._axes = tuple(range(ndim)) if axes is None else tuple(axes)
         self._degree = tuple(int(v) for v in degree * np.ones(ndim, dtype=int))
         self._offset = None if offset is None else np.asarray(offset)
+        self._shape = tuple(
+            self.coeffs.shape[axis] - (deg//2)*2 
+            for deg, axis in zip(self._degree, self.axes)
+        )
         if bounds and len(bounds) == 2 and all(isinstance(b, int) for b in bounds):
             bounds = [tuple(bounds)] * ndim
         self._bounds = None if bounds is None else list(map(tuple, bounds))
@@ -206,6 +207,7 @@ class BSpline:
                     f"First coordinates dimentions must be: {ndim}, got: {coords.shape[0]}"
                 )
 
+        shape = self.shape
         for i in range(self.ndim):
             bounds = self.bounds[i]
             if np.any((bounds[0] > coords[i]) | (bounds[1] < coords[i])):
@@ -214,7 +216,6 @@ class BSpline:
             if self._bounds is not None or self._offset is not None:
                 a, b, f = 1.0, 0.0, 0.0
                 if self._bounds is not None:
-                    shape = self.shape
                     a = (shape[i] - 1) / np.diff(bounds)
                     b = bounds[0]
                 if self._offset is not None:
@@ -229,13 +230,13 @@ class BSpline:
             return indirect_transform_nd(coords, self._degree, self.coeffs)
 
     def derivative(self, n=1, *, axis=0):
-        """Return the `n-th' order derivative as BSpline"""
-        coeffs = np.diff(self.coeffs, n=n, axis=self.axes[axis])
-        d = np.asarray(self._degree)
-        n = n * np.eye(d.size, dtype=int)[axis]
-        offset = (n % 2) * (-1) ** d * 0.5
+        """Return the `n-th' order derivative as BSpline"""  
+        degree = np.asarray(self._degree)
+        order = n * np.eye(degree.size, dtype=int)[axis]
+        coeffs = np.diff(self.coeffs, n=n, axis=self.axes[axis], append=0)
+        offset = (n % 2) * (-1) ** degree * 0.5
         return BSpline(
-            tuple(d - n),
+            tuple(degree - order),
             coeffs,
             offset=tuple(offset),
             axes=self.axes,
