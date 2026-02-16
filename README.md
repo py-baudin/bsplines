@@ -57,9 +57,13 @@ jac = spl.jacobian(coords)
 
 ![diff-1d](docs/diff-1d.png)
 
-2D interpolation (`examples/bsplines_nd_interp.py.py`)
+2D interpolation (`examples/bsplines_nd_interp.py`)
 
 ![2d-splines](docs/bsplines-2d.png)
+
+Smoothed approximation of a noisy path (`examples/bsplines_1d_smoothing.py`)
+
+![smoothing](docs/bsplines_smoothing.png)
 
 
 ## Bibliography

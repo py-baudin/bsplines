@@ -35,6 +35,8 @@ plt.plot(smooth[:, 0], smooth[:, 1], label='BSpline approximation')
 plt.plot(nodes[:, 0], nodes[:, 1], '+', color='k', label='BSpline nodes')
 plt.title(f'BSpline approximation (num. avg={navg}, k={degree})')
 plt.legend(loc='lower right')
+plt.xticks([])
+plt.yticks([])
 plt.show()
 
 
